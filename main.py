@@ -156,7 +156,7 @@ def diagnosis_page():
 
         # Dropdown menu for model selection
         model_choice = st.selectbox("Select a Model:", 
-                                    options=["Decision Tree", "Logistic Regression"])  # In future I will add more
+                                    options=["Decision Tree","Logistic Regression"])  # In future I will add more
         
         # Choose the model based on user selection
         if model_choice == "Logistic Regression":
