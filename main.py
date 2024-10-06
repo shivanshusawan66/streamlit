@@ -1,44 +1,41 @@
 import os
 import pandas as pd
 import streamlit as st
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
 import joblib
 
 # Custom CSS
-css = '''
-<style>
-    .block-container {
-        padding-top: 3rem;
-    }
+with open('style.css') as f:
+    css = f.read()
 
-    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
-    font-size:26px;
-    font-weight:500;
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        display: flex;  /* Use flexbox to arrange tabs */
-        justify-content: space-between; 
-    }
-</style>
-'''
+st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
 
-st.markdown(css, unsafe_allow_html=True)
-
-# Load the pre-trained model
+# Load the pre-trained model with caching
 @st.cache_resource
 def load_model(model_path):
     """Helper function to load the pre-trained model."""
     model = joblib.load(model_path)
     return model
 
+logistic_model = load_model("models/logistic-regression-model.pkl")
+decision_tree_model = load_model("models/decision-tree-model.pkl")
+
+
 # Load dataset function
-def load_dataset(file_path):
-    """Helper function to load the dataset."""
-    try:
-        data = pd.read_csv("dataset/diabetes.csv")
-        return data
-    except FileNotFoundError:
-        st.error(f"Dataset not found at {'dataset/diabetes.csv'}")
-        return None
+data = pd.read_csv('dataset/diabetes.csv')
+
+# Define the split size for 20%
+test_data = int(len(data) * 0.2)
+
+# Create training and testing datasets
+X = data.drop('Outcome', axis=1)  # Features
+y = data['Outcome']                # Target variable
+
+# Take the first 20% of the data as the test set
+X_test = X.iloc[:test_data]       # First 20% of rows
+y_test = y.iloc[:test_data]       # Target variable
 
 # Function to download the dataset
 def download_data(file_path):
@@ -132,21 +129,13 @@ def diagnosis_page():
     with tabs[2]:
         st.subheader("Diabetes Prediction App")
 
-        # File input for dataset
-        dataset_path = "dataset/diabetes.csv"  # Change to your dataset path
-
-        # Load and display dataset
-        data = load_dataset(dataset_path)
         if data is not None:
             st.write("Here are the first 5 entries of the dataset:")
             st.dataframe(data.head())  # Display the first 5 rows of the dataset
             
             # Provide a download button for the dataset
-            download_data(dataset_path)
+            download_data("dataset/diabetes.csv")
         
-        # Load Model
-        model_path = "models/logistic_regression_model.pkl"  # Use forward slashes for paths
-        model = load_model(model_path)
 
         # User inputs for prediction
         st.subheader("Enter patient details:")
@@ -156,19 +145,43 @@ def diagnosis_page():
             reset_inputs()  # Call the reset function
         
         # Create input fields linked to session state
-        pregnancies = st.number_input('Pregnancies', value=st.session_state.pregnancies, key='pregnancies')
-        glucose = st.number_input('Glucose', value=st.session_state.glucose, key='glucose')
-        bloodPressure = st.number_input('Blood Pressure', value=st.session_state.bloodPressure, key='bloodPressure')
-        skinThickness = st.number_input('Skin Thickness', value=st.session_state.skinThickness, key='skinThickness')
-        insulin = st.number_input('Insulin', value=st.session_state.insulin, key='insulin')
-        bmi = st.number_input('BMI', value=st.session_state.bmi, key='bmi')
-        diabetesPedigreeFunction = st.number_input('Diabetes Pedigree Function', value=st.session_state.diabetesPedigreeFunction, key='diabetesPedigreeFunction')
-        age = st.number_input('Age', value=st.session_state.age, key='age')
+        pregnancies = st.number_input('Pregnancies', key='pregnancies')
+        glucose = st.number_input('Glucose', key='glucose')
+        bloodPressure = st.number_input('Blood Pressure', key='bloodPressure')
+        skinThickness = st.number_input('Skin Thickness', key='skinThickness')
+        insulin = st.number_input('Insulin', key='insulin')
+        bmi = st.number_input('BMI', key='bmi')
+        diabetesPedigreeFunction = st.number_input('Diabetes Pedigree Function', key='diabetesPedigreeFunction')
+        age = st.number_input('Age', key='age')
 
-        # Predict Button
+        # Dropdown menu for model selection
+        model_choice = st.selectbox("Select a Model:", 
+                                    options=["Logistic Regression", "Decision Tree"])  # In future I will add more
+        
+        # Choose the model based on user selection
+        if model_choice == "Logistic Regression":
+            model = logistic_model
+            model_name = "Logistic Regression"  # Custom name
+        elif model_choice == "Decision Tree":
+            model = decision_tree_model
+            model_name = "Decision Tree"  # Custom name
+        # Model Predict Button
         if st.button('Predict', key='predict_button'):
-            with st.spinner('Processing...'):
-                pred = model.predict([[pregnancies, glucose, bloodPressure, skinThickness, insulin, bmi, diabetesPedigreeFunction, age]])
+            with st.spinner('Processing...'): 
+                # Create a DataFrame with the input values
+                input_data = pd.DataFrame({
+                    'Pregnancies': [pregnancies],
+                    'Glucose': [glucose],
+                    'BloodPressure': [bloodPressure],
+                    'SkinThickness': [skinThickness],
+                    'Insulin': [insulin],
+                    'BMI': [bmi],
+                    'DiabetesPedigreeFunction': [diabetesPedigreeFunction],
+                    'Age': [age]
+                })
+
+                # Make the prediction using the DataFrame
+                pred = model.predict(input_data)
                 result = "Positive" if pred == [1] else "Negative"
 
                 # Display result using st.success or st.error
@@ -176,6 +189,14 @@ def diagnosis_page():
                     st.error(f"The prediction is: **{result}**")
                 else:
                     st.success(f"The prediction is: **{result}**")
+
+                # Calculate accuracy
+                y_pred = model.predict(X_test)
+                accuracy = accuracy_score(y_test, y_pred)
+
+                # Display accuracy
+                st.info(f'{model_name} Model Accuracy: **{accuracy * 100:.2f}%**')
+
 
 # Page Routing
 home()
