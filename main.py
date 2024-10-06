@@ -159,12 +159,13 @@ def diagnosis_page():
                                     options=["Decision Tree","Logistic Regression"])  # In future I will add more
         
         # Choose the model based on user selection
-        if model_choice == "Logistic Regression":
-            model = logistic_model
-            model_name = "Logistic Regression"  # Custom name
-        elif model_choice == "Decision Tree":
+        if model_choice == "Decision Tree":
             model = decision_tree_model
             model_name = "Decision Tree"  # Custom name
+        elif model_choice == "Logistic Regression":
+            model = logistic_model
+            model_name = "Logistic Regression"  # Custom name
+
         # Model Predict Button
         if st.button('Predict', key='predict_button'):
             with st.spinner('Processing...'): 
